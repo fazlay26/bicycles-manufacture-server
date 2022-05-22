@@ -20,6 +20,7 @@ async function run() {
         await client.connect();
         const partsCollection = client.db('bicycles_manufacturer').collection('parts');
         const orderCollection = client.db('bicycles_manufacturer').collection('orders');
+        const reviewCollection = client.db('bicycles_manufacturer').collection('reviews');
 
         app.get('/part', async (req, res) => {
             const query = {}
@@ -61,6 +62,19 @@ async function run() {
             }
             const result = await partsCollection.updateOne(filter, updatedoc, options)
             res.send(result)
+        })
+        //review post  backend api:
+        app.post('/addreview', async (req, res) => {
+            const newReview = req.body
+            const result = await reviewCollection.insertOne(newReview)
+            res.send(result)
+        })
+        //review  data load api:
+        app.get('/review', async (req, res) => {
+            const query = {}
+            const cursor = reviewCollection.find(query)
+            const reviews = await cursor.toArray()
+            res.send(reviews)
         })
 
     }
