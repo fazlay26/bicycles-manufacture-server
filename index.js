@@ -34,10 +34,32 @@ async function run() {
             const part = await partsCollection.findOne(query)
             res.send(part)
         })
+        app.get('/myorder', async (req, res) => {
+            const email = req.query.customerEmail
+            console.log(email);
+            const query = { customerEmail: email }
+            const cursor = orderCollection.find(query)
+            const parts = await cursor.toArray()
+            res.send(parts)
+        })
         //order place api:
         app.post('/part', async (req, res) => {
             const order = req.body
             const result = await orderCollection.insertOne(order)
+            res.send(result)
+        })
+        //update api:
+        app.put('/part/:id', async (req, res) => {
+            const id = req.params.id
+            const updatePart = req.body
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true }
+            const updatedoc = {
+                $set: {
+                    AvailableQuantity: updatePart.AvailableQuantity
+                }
+            }
+            const result = await partsCollection.updateOne(filter, updatedoc, options)
             res.send(result)
         })
 
