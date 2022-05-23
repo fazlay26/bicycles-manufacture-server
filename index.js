@@ -1,5 +1,6 @@
 const express = require('express')
 const app = express()
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const cors = require('cors');
 const port = process.env.PORT || 5000
@@ -8,6 +9,21 @@ require('dotenv').config()
 //middleware
 app.use(express.json())
 app.use(cors())
+
+function verifyJwt(req, res, next) {
+    const authHeader = req.headers.authorization
+    if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorized access' })
+    }
+    const token = authHeader.split(' ')[1]
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'forbidden access' })
+        }
+        req.decoded = decoded //je data ta token er moddhe ase sheta amra  decoded er moddhe pabo
+        next()
+    });
+}
 
 
 
@@ -21,6 +37,8 @@ async function run() {
         const partsCollection = client.db('bicycles_manufacturer').collection('parts');
         const orderCollection = client.db('bicycles_manufacturer').collection('orders');
         const reviewCollection = client.db('bicycles_manufacturer').collection('reviews');
+        const profileCollection = client.db('bicycles_manufacturer').collection('profile');
+        const userCollection = client.db('bicycles_manufacturer').collection('user');
 
         app.get('/part', async (req, res) => {
             const query = {}
@@ -35,13 +53,20 @@ async function run() {
             const part = await partsCollection.findOne(query)
             res.send(part)
         })
-        app.get('/myorder', async (req, res) => {
+        app.get('/myorder', verifyJwt, async (req, res) => {
             const email = req.query.customerEmail
-            console.log(email);
-            const query = { customerEmail: email }
-            const cursor = orderCollection.find(query)
-            const parts = await cursor.toArray()
-            res.send(parts)
+            const decodedEmail = req.decoded.email
+            if (email === decodedEmail) {
+                const query = { customerEmail: email }
+                const cursor = orderCollection.find(query)
+                const parts = await cursor.toArray()
+                res.send(parts)
+            }
+            else {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+
+
         })
         //order place api:
         app.post('/part', async (req, res) => {
@@ -75,6 +100,87 @@ async function run() {
             const cursor = reviewCollection.find(query)
             const reviews = await cursor.toArray()
             res.send(reviews)
+        })
+        //profile post backend  api:
+        app.post('/myprofile', async (req, res) => {
+            const newProfile = req.body
+            const result = await profileCollection.insertOne(newProfile)
+            res.send(result)
+        })
+        // app.put('/myprofile', async (req, res) => {
+        //     const updateProfile = req.body
+        //     const options = { upsert: true }
+        //     const updatedoc = {
+        //         $set: {
+        //             profile: updateProfile
+        //         }
+        //     }
+        //     const result = await profileCollection.updateOne(updatedoc, options)
+        //     res.send(result)
+
+        // })
+        //update api for myProfile
+        app.put('/myprofile/:email', async (req, res) => {
+            const email = req.params.email
+            const info = req.body
+            const filter = { email: email }
+            const options = { upsert: true }
+            const updatedoc = {
+                //set er moddhe user related info thakbe.ei info amra body theke nibo
+                $set: info,
+            };
+            const result = await profileCollection.updateOne(filter, updatedoc, options)
+            res.send(result)
+
+
+        })
+
+        //user load api:
+        app.get('/user', verifyJwt, async (req, res) => {
+
+            const query = {}
+            const cursor = userCollection.find(query)
+            const users = await cursor.toArray()
+            res.send(users)
+        })
+
+
+        app.put('/user/:email', async (req, res) => {
+            const email = req.params.email
+            const user = req.body
+            const filter = { email: email }//email diye amra user take khujbo
+            const options = { upsert: true }
+            const updatedoc = {
+                //set er moddhe user related info thakbe.ei info amra body theke nibo
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter, updatedoc, options)
+            var token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+            res.send({ result, token })
+        })
+        //make admin backend api:
+        app.put('/user/admin/:email', verifyJwt, async (req, res) => {
+            const email = req.params.email
+            const requester = req.decoded.email
+            const requesterAccount = await userCollection.findOne({ email: requester })
+            if (requesterAccount.role === 'admin') {
+                const filter = { email: email }
+                const updatedoc = {
+                    //set er moddhe user related info thakbe.ei info amra body theke nibo
+                    $set: { role: 'admin' },
+                };
+                const result = await userCollection.updateOne(filter, updatedoc)
+                res.send(result)
+            }
+            else {
+                res.status(403).send({ message: 'forbidden access' })
+            }
+        })
+        app.get('/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = await userCollection.findOne({ email: email });
+            const isAdmin = user.role === 'admin';
+            res.send({ admin: isAdmin })
         })
 
     }
