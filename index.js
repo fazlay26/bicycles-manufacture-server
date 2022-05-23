@@ -182,6 +182,19 @@ async function run() {
             const isAdmin = user.role === 'admin';
             res.send({ admin: isAdmin })
         })
+        //admin post api:
+        app.post('/adminpost', async (req, res) => {
+            const newPart = req.body
+            const result = await partsCollection.insertOne(newPart)
+            res.send(result)
+        })
+        //delete product api:
+        app.delete('/part/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId }
+            const result = await partsCollection.deleteOne(query)
+            res.send(result)
+        })
 
     }
     finally {
