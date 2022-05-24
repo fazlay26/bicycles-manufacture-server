@@ -65,9 +65,16 @@ async function run() {
             else {
                 return res.status(403).send({ message: 'forbidden access' })
             }
-
-
         })
+
+        app.get('/myorder/:id', verifyJwt, async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId(id) }
+            const order = await orderCollection.findOne(query)
+            res.send(order)
+        })
+
+
         //order place api:
         app.post('/part', async (req, res) => {
             const order = req.body
