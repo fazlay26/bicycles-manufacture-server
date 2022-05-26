@@ -237,11 +237,31 @@ async function run() {
         })
         //delete myorder backend api:
         app.delete('/order/:id', async (req, res) => {
-
             const id = req.params.id
             const query = { _id: ObjectId(id) }
             const result = await orderCollection.deleteOne(query)
             res.send(result)
+        })
+        //all order api:
+        app.get('/manageorder', async (req, res) => {
+            const query = {}
+            const cursor = orderCollection.find(query)
+            const manageorders = await cursor.toArray()
+            res.send(manageorders)
+        })
+        //update manageorder
+        app.put('/manageorder/:id', async (req, res) => {
+            const id = req.params.id
+
+            const filter = { _id: ObjectId(id) }
+            const updatedoc = {
+                $set: {
+                    shipped: true
+                }
+            }
+            const result = await orderCollection.updateOne(filter, updatedoc)
+            res.send(result)
+
         })
 
     }
